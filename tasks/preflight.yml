@@ -25,6 +25,7 @@
       - sshpass
     state: present
   become: true
+  ignore_errors: true  # Ignore if system has broken packages
 
 - name: Check if libvirt is running
   ansible.builtin.systemd:

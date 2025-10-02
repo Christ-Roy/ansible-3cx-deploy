@@ -1,0 +1,50 @@
+---
+# Quick test deployment - creates VM but doesn't wait for full installation
+# Usage: ansible-playbook -i inventory test-deploy.yml
+
+- name: Test 3CX Deployment (VM Creation Only)
+  hosts: localhost
+  gather_facts: true
+  become: false
+
+  vars:
+    vm_name: "3cx-test-ansible"
+    vm_memory: 4096
+    vm_vcpus: 2
+    vm_disk_size: 40
+    vm_ip_address: "192.168.122.100"
+    vm_network: "default"
+    vm_network_type: "network"
+
+    iso_path: "/home/brunon5/ISOs/3cx-debian.iso"
+    setupconfig_source: "/home/brunon5/___3CX@Admin2025/SetupConfig.xml"
+
+    storage_pool: "default"
+    storage_path: "/var/lib/libvirt/images"
+
+  tasks:
+    - name: Run preflight checks
+      ansible.builtin.include_role:
+        name: "{{ playbook_dir }}"
+        tasks_from: preflight
+
+    - name: Create test VM
+      ansible.builtin.include_role:
+        name: "{{ playbook_dir }}"
+        tasks_from: create_vm
+
+    - name: Display test results
+      ansible.builtin.debug:
+        msg:
+          - "==========================================="
+          - "✅ Test Deployment Successful!"
+          - "==========================================="
+          - "VM Name: {{ vm_name }}"
+          - "Expected IP: {{ vm_ip_address }}"
+          - ""
+          - "Next steps:"
+          - "1. Check VM status: sudo virsh list"
+          - "2. Monitor console: sudo virsh console {{ vm_name }}"
+          - "3. Wait ~20 min for installation"
+          - "4. Destroy test VM: sudo virsh destroy {{ vm_name }} && sudo virsh undefine {{ vm_name }}"
+          - "==========================================="
