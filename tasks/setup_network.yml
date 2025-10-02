@@ -1,0 +1,119 @@
+---
+# Setup network access for 3CX VM
+
+- name: Check network type
+  ansible.builtin.debug:
+    msg: "Network type: {{ vm_network_type }}, Network: {{ vm_network }}"
+
+- name: Setup NAT port forwarding for 3CX (if using NAT network)
+  when: vm_network_type == "network"
+  block:
+    - name: Install iptables-persistent
+      ansible.builtin.package:
+        name: iptables-persistent
+        state: present
+      become: true
+      ignore_errors: true
+
+    - name: Get host default interface IP
+      ansible.builtin.shell: |
+        ip route get 1.1.1.1 | grep -oP 'src \K\S+'
+      register: host_ip
+      changed_when: false
+
+    - name: Configure iptables NAT rules for 3CX ports
+      ansible.builtin.shell: |
+        # Remove old rules if they exist
+        iptables -t nat -D PREROUTING -p tcp --dport {{ item.port }} -j DNAT --to {{ vm_ip_address }}:{{ item.port }} 2>/dev/null || true
+        iptables -D FORWARD -d {{ vm_ip_address }}/32 -p tcp --dport {{ item.port }} -j ACCEPT 2>/dev/null || true
+
+        # Add new rules
+        iptables -t nat -A PREROUTING -p tcp --dport {{ item.port }} -j DNAT --to {{ vm_ip_address }}:{{ item.port }}
+        iptables -I FORWARD -d {{ vm_ip_address }}/32 -p tcp --dport {{ item.port }} -j ACCEPT
+
+        # Enable masquerading
+        iptables -t nat -A POSTROUTING -s 192.168.122.0/24 -j MASQUERADE
+      become: true
+      loop:
+        - { port: 5015, description: "Web config wizard" }
+        - { port: 5001, description: "Web admin" }
+        - { port: 5000, description: "Web client" }
+        - { port: 443, description: "HTTPS" }
+        - { port: 80, description: "HTTP" }
+      register: iptables_tcp
+      changed_when: true
+
+    - name: Configure iptables NAT rules for SIP (UDP/TCP)
+      ansible.builtin.shell: |
+        # TCP
+        iptables -t nat -D PREROUTING -p tcp --dport 5060 -j DNAT --to {{ vm_ip_address }}:5060 2>/dev/null || true
+        iptables -t nat -A PREROUTING -p tcp --dport 5060 -j DNAT --to {{ vm_ip_address }}:5060
+        iptables -I FORWARD -d {{ vm_ip_address }}/32 -p tcp --dport 5060 -j ACCEPT
+
+        # UDP
+        iptables -t nat -D PREROUTING -p udp --dport 5060 -j DNAT --to {{ vm_ip_address }}:5060 2>/dev/null || true
+        iptables -t nat -A PREROUTING -p udp --dport 5060 -j DNAT --to {{ vm_ip_address }}:5060
+        iptables -I FORWARD -d {{ vm_ip_address }}/32 -p udp --dport 5060 -j ACCEPT
+
+        # SIP TLS
+        iptables -t nat -D PREROUTING -p tcp --dport 5061 -j DNAT --to {{ vm_ip_address }}:5061 2>/dev/null || true
+        iptables -t nat -A PREROUTING -p tcp --dport 5061 -j DNAT --to {{ vm_ip_address }}:5061
+        iptables -I FORWARD -d {{ vm_ip_address }}/32 -p tcp --dport 5061 -j ACCEPT
+      become: true
+      register: iptables_sip
+      changed_when: true
+
+    - name: Configure iptables NAT rules for RTP media (UDP 9000-10999)
+      ansible.builtin.shell: |
+        iptables -t nat -D PREROUTING -p udp --dport 9000:10999 -j DNAT --to {{ vm_ip_address }} 2>/dev/null || true
+        iptables -t nat -A PREROUTING -p udp --dport 9000:10999 -j DNAT --to {{ vm_ip_address }}
+        iptables -I FORWARD -d {{ vm_ip_address }}/32 -p udp --dport 9000:10999 -j ACCEPT
+      become: true
+      register: iptables_rtp
+      changed_when: true
+
+    - name: Save iptables rules
+      ansible.builtin.shell: |
+        iptables-save > /etc/iptables/rules.v4 || netfilter-persistent save
+      become: true
+      ignore_errors: true
+      changed_when: false
+
+    - name: Display NAT forwarding information
+      ansible.builtin.debug:
+        msg:
+          - "==========================================="
+          - "NAT Port Forwarding Configured"
+          - "==========================================="
+          - "Host IP: {{ host_ip.stdout }}"
+          - "VM IP: {{ vm_ip_address }}"
+          - ""
+          - "Access 3CX from outside via host IP:"
+          - "  https://{{ host_ip.stdout }}:443"
+          - "  https://{{ host_ip.stdout }}:5001 (admin)"
+          - "  http://{{ host_ip.stdout }}:5015 (wizard)"
+          - ""
+          - "Forwarded ports:"
+          - "  80, 443 - Web interfaces"
+          - "  5000, 5001, 5015 - 3CX services"
+          - "  5060/udp, 5060/tcp - SIP"
+          - "  5061/tcp - SIP TLS"
+          - "  9000-10999/udp - RTP media"
+          - "==========================================="
+
+- name: Display bridge network information
+  when: vm_network_type == "bridge"
+  ansible.builtin.debug:
+    msg:
+      - "==========================================="
+      - "Bridge Network Configuration"
+      - "==========================================="
+      - "VM IP: {{ vm_ip_address }}"
+      - "Network: {{ vm_network }}"
+      - ""
+      - "VM is directly accessible on your LAN:"
+      - "  https://{{ vm_ip_address }}"
+      - "  https://{{ vm_ip_address }}:5001"
+      - ""
+      - "No port forwarding needed!"
+      - "==========================================="

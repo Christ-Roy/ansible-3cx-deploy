@@ -1,0 +1,89 @@
+---
+# Playbook to cleanup/destroy 3CX VM and network rules
+# Usage: ansible-playbook -i inventory cleanup-vm.yml -e "vm_name=3cx-veridian"
+
+- name: Cleanup 3CX VM
+  hosts: localhost
+  gather_facts: false
+
+  vars:
+    vm_name: "3cx-veridian"
+    vm_ip_address: "192.168.122.93"
+    storage_path: "/var/lib/libvirt/images"
+
+  tasks:
+    - name: Get list of running VMs
+      ansible.builtin.command:
+        cmd: virsh list --all --name
+      become: true
+      register: vm_list
+      changed_when: false
+
+    - name: Destroy VM if running
+      ansible.builtin.command:
+        cmd: virsh destroy {{ vm_name }}
+      become: true
+      when: vm_name in vm_list.stdout_lines
+      ignore_errors: true
+
+    - name: Undefine VM
+      ansible.builtin.command:
+        cmd: virsh undefine {{ vm_name }}
+      become: true
+      when: vm_name in vm_list.stdout_lines
+      ignore_errors: true
+
+    - name: Remove VM disk
+      ansible.builtin.file:
+        path: "{{ storage_path }}/{{ vm_name }}.qcow2"
+        state: absent
+      become: true
+
+    - name: Remove iptables NAT rules
+      ansible.builtin.shell: |
+        # Web interfaces
+        iptables -t nat -D PREROUTING -p tcp --dport {{ item }} -j DNAT --to {{ vm_ip_address }}:{{ item }} 2>/dev/null || true
+        iptables -D FORWARD -d {{ vm_ip_address }}/32 -p tcp --dport {{ item }} -j ACCEPT 2>/dev/null || true
+      become: true
+      loop:
+        - 5015
+        - 5001
+        - 5000
+        - 443
+        - 80
+        - 5060
+        - 5061
+      ignore_errors: true
+
+    - name: Remove iptables SIP UDP rules
+      ansible.builtin.shell: |
+        iptables -t nat -D PREROUTING -p udp --dport 5060 -j DNAT --to {{ vm_ip_address }}:5060 2>/dev/null || true
+        iptables -D FORWARD -d {{ vm_ip_address }}/32 -p udp --dport 5060 -j ACCEPT 2>/dev/null || true
+      become: true
+      ignore_errors: true
+
+    - name: Remove iptables RTP rules
+      ansible.builtin.shell: |
+        iptables -t nat -D PREROUTING -p udp --dport 9000:10999 -j DNAT --to {{ vm_ip_address }} 2>/dev/null || true
+        iptables -D FORWARD -d {{ vm_ip_address }}/32 -p udp --dport 9000:10999 -j ACCEPT 2>/dev/null || true
+      become: true
+      ignore_errors: true
+
+    - name: Save iptables rules
+      ansible.builtin.shell: |
+        iptables-save > /etc/iptables/rules.v4 || netfilter-persistent save
+      become: true
+      ignore_errors: true
+
+    - name: Display cleanup summary
+      ansible.builtin.debug:
+        msg:
+          - "==========================================="
+          - "VM Cleanup Complete"
+          - "==========================================="
+          - "VM '{{ vm_name }}' has been:"
+          - "  - Destroyed (if running)"
+          - "  - Undefined from libvirt"
+          - "  - Disk removed"
+          - "  - iptables rules cleaned up"
+          - "==========================================="

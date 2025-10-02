@@ -7,6 +7,9 @@
 - name: Include VM creation tasks
   ansible.builtin.include_tasks: create_vm.yml
 
+- name: Include network setup tasks
+  ansible.builtin.include_tasks: setup_network.yml
+
 - name: Include installation wait tasks
   ansible.builtin.include_tasks: wait_install.yml
 
