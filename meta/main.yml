@@ -25,6 +25,4 @@ galaxy_info:
     - libvirt
     - virtualization
 
-dependencies:
-  - role: community.libvirt
-    when: ansible_os_family == "Debian"
+dependencies: []

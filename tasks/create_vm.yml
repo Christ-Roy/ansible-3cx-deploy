@@ -35,16 +35,16 @@
     seconds: 10
 
 - name: Get VM state
-  community.libvirt.virt:
-    command: status
-    name: "{{ vm_name }}"
+  ansible.builtin.command:
+    cmd: virsh domstate {{ vm_name }}
   become: true
   register: vm_state
+  changed_when: false
 
 - name: Display VM creation status
   ansible.builtin.debug:
     msg:
       - "VM created successfully"
       - "Name: {{ vm_name }}"
-      - "State: {{ vm_state.status }}"
+      - "State: {{ vm_state.stdout }}"
       - "Installation in progress... This will take 15-30 minutes"
