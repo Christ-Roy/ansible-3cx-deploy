@@ -1,0 +1,30 @@
+---
+galaxy_info:
+  role_name: 3cx_deploy
+  author: Bruno Robert
+  description: Automated 3CX PBX deployment on KVM/libvirt
+  company: Veridian
+  license: MIT
+  min_ansible_version: "2.9"
+
+  platforms:
+    - name: Debian
+      versions:
+        - bullseye
+        - bookworm
+    - name: Ubuntu
+      versions:
+        - focal
+        - jammy
+
+  galaxy_tags:
+    - 3cx
+    - pbx
+    - voip
+    - kvm
+    - libvirt
+    - virtualization
+
+dependencies:
+  - role: community.libvirt
+    when: ansible_os_family == "Debian"

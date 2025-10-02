@@ -1,0 +1,33 @@
+---
+# Test playbook for 3CX deployment role
+# This is a dry-run test that validates the role without deploying
+
+- name: Test 3CX Deployment Role (Dry Run)
+  hosts: localhost
+  gather_facts: true
+
+  vars:
+    vm_name: "3cx-test"
+    vm_memory: 4096
+    vm_vcpus: 2
+    vm_disk_size: 40
+    vm_ip_address: "192.168.122.100"
+    iso_path: "/home/brunon5/ISOs/3cx-debian.iso"
+    setupconfig_source: "/home/brunon5/___3CX@Admin2025/SetupConfig.xml"
+    ssh_user: "root"
+    ssh_password: "TestPassword123!"
+
+  tasks:
+    - name: Run preflight checks only
+      ansible.builtin.include_role:
+        name: ansible-3cx-deploy
+        tasks_from: preflight
+      check_mode: true
+
+    - name: Display test results
+      ansible.builtin.debug:
+        msg:
+          - "✅ Preflight checks passed!"
+          - "✅ ISO file validated"
+          - "✅ SetupConfig.xml validated"
+          - "✅ Required packages checked"

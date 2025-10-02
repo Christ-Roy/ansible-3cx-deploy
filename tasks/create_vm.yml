@@ -1,0 +1,50 @@
+---
+# Create KVM VM for 3CX
+
+- name: Create VM disk
+  ansible.builtin.command:
+    cmd: >
+      qemu-img create -f qcow2
+      {{ storage_path }}/{{ vm_name }}.qcow2
+      {{ vm_disk_size }}G
+  become: true
+  register: disk_creation
+  changed_when: disk_creation.rc == 0
+
+- name: Create VM with virt-install
+  ansible.builtin.command:
+    cmd: >
+      virt-install
+      --name {{ vm_name }}
+      --memory {{ vm_memory }}
+      --vcpus {{ vm_vcpus }}
+      --disk path={{ storage_path }}/{{ vm_name }}.qcow2,format=qcow2,bus=virtio
+      --cdrom {{ iso_path }}
+      --os-variant debian12
+      --network {{ vm_network_type }}={{ vm_network }},model=virtio
+      --graphics none
+      --console pty,target_type=serial
+      --noautoconsole
+      --boot cdrom,hd
+  become: true
+  register: vm_creation
+  changed_when: vm_creation.rc == 0
+
+- name: Wait for VM to start
+  ansible.builtin.pause:
+    seconds: 10
+
+- name: Get VM state
+  community.libvirt.virt:
+    command: status
+    name: "{{ vm_name }}"
+  become: true
+  register: vm_state
+
+- name: Display VM creation status
+  ansible.builtin.debug:
+    msg:
+      - "VM created successfully"
+      - "Name: {{ vm_name }}"
+      - "State: {{ vm_state.status }}"
+      - "Installation in progress... This will take 15-30 minutes"

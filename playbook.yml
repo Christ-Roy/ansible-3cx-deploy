@@ -1,0 +1,48 @@
+---
+# Playbook to deploy 3CX using the ansible role
+# Usage: ansible-playbook -i inventory playbook.yml
+
+- name: Deploy 3CX PBX on KVM
+  hosts: localhost
+  gather_facts: true
+  become: false
+
+  vars:
+    # Override these variables as needed
+    vm_name: "3cx-veridian"
+    vm_memory: 4096
+    vm_vcpus: 2
+    vm_disk_size: 40
+    vm_ip_address: "192.168.122.93"
+
+    # Path to your files
+    iso_path: "/home/brunon5/ISOs/3cx-debian.iso"
+    setupconfig_source: "/home/brunon5/___3CX@Admin2025/SetupConfig.xml"
+
+    # SSH credentials (set during install or use default)
+    ssh_user: "root"
+    ssh_password: "ChangeMe123!"
+
+  tasks:
+    - name: Include 3CX deployment role
+      ansible.builtin.include_role:
+        name: "{{ playbook_dir }}"
+
+  post_tasks:
+    - name: Final deployment summary
+      ansible.builtin.debug:
+        msg:
+          - "============================================"
+          - "        3CX DEPLOYMENT COMPLETED           "
+          - "============================================"
+          - ""
+          - "Access your 3CX:"
+          - "  Web UI: https://{{ vm_ip_address }}"
+          - "  Admin: https://{{ vm_ip_address }}:5001"
+          - "  SSH: ssh {{ ssh_user }}@{{ vm_ip_address }}"
+          - ""
+          - "Next steps:"
+          - "  1. Access web UI and complete setup"
+          - "  2. Configure extensions and trunks"
+          - "  3. Update firewall rules if needed"
+          - "============================================"

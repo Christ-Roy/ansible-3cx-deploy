@@ -1,0 +1,6 @@
+[local]
+localhost ansible_connection=local
+
+[3cx_vms]
+# Add your 3CX VMs here after deployment
+# 3cx-veridian ansible_host=192.168.122.93 ansible_user=root

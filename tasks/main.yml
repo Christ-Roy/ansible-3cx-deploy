@@ -1,0 +1,26 @@
+---
+# Main tasks for 3CX deployment
+
+- name: Include pre-flight checks
+  ansible.builtin.include_tasks: preflight.yml
+
+- name: Include VM creation tasks
+  ansible.builtin.include_tasks: create_vm.yml
+
+- name: Include installation wait tasks
+  ansible.builtin.include_tasks: wait_install.yml
+
+- name: Include 3CX configuration tasks
+  ansible.builtin.include_tasks: configure_3cx.yml
+
+- name: Display deployment information
+  ansible.builtin.debug:
+    msg:
+      - "=========================================="
+      - "3CX Deployment Complete!"
+      - "=========================================="
+      - "VM Name: {{ vm_name }}"
+      - "IP Address: {{ vm_ip_address }}"
+      - "Web UI: https://{{ vm_ip_address }}"
+      - "SSH: ssh {{ ssh_user }}@{{ vm_ip_address }}"
+      - "=========================================="

@@ -1,0 +1,39 @@
+---
+# Default variables for 3CX deployment
+
+# VM Configuration
+vm_name: "3cx-veridian"
+vm_memory: 4096  # MB
+vm_vcpus: 2
+vm_disk_size: 40  # GB
+vm_network: "default"  # or bridge name like "br0"
+vm_network_type: "network"  # "network" or "bridge"
+
+# ISO Path
+iso_path: "/home/brunon5/ISOs/3cx-debian.iso"
+
+# Network Configuration (will be configured via SetupConfig.xml)
+vm_ip_address: "192.168.122.93"
+vm_gateway: "192.168.122.1"
+vm_netmask: "255.255.255.0"
+vm_dns: "8.8.8.8"
+
+# 3CX Configuration
+setupconfig_source: "/home/brunon5/___3CX@Admin2025/SetupConfig.xml"
+setupconfig_dest: "/etc/3cxpbx/setupconfig.xml"
+
+# SSH Configuration (for post-install)
+ssh_user: "root"
+ssh_password: "ChangeMe123!"  # Will be set during Debian install
+ssh_port: 22
+
+# Timeouts
+install_timeout: 1800  # 30 minutes for full installation
+boot_timeout: 300      # 5 minutes for first boot
+
+# Storage Pool
+storage_pool: "default"
+storage_path: "/var/lib/libvirt/images"
+
+# Post-install wait time (seconds)
+post_install_wait: 120

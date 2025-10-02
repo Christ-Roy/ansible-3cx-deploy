@@ -1,0 +1,6 @@
+---
+# Requirements for the 3CX deployment role
+
+collections:
+  - name: community.libvirt
+    version: ">=1.3.0"

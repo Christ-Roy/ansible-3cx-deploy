@@ -1,0 +1,45 @@
+---
+# Wait for Debian + 3CX installation to complete
+
+- name: Display installation wait message
+  ansible.builtin.debug:
+    msg:
+      - "Waiting for automated installation to complete..."
+      - "This includes:"
+      - "  1. Debian 12 installation (preseed)"
+      - "  2. Automatic reboot"
+      - "  3. 3CX package installation"
+      - "  4. Services startup"
+      - "Expected time: 15-30 minutes"
+
+- name: Wait for VM to be accessible via SSH (installation complete)
+  ansible.builtin.wait_for:
+    host: "{{ vm_ip_address }}"
+    port: "{{ ssh_port }}"
+    delay: 60
+    timeout: "{{ install_timeout }}"
+    state: started
+  delegate_to: localhost
+
+- name: Wait additional time for 3CX services to start
+  ansible.builtin.pause:
+    seconds: "{{ post_install_wait }}"
+    prompt: "Waiting for 3CX services to fully initialize..."
+
+- name: Check if 3CX is installed
+  ansible.builtin.command:
+    cmd: dpkg -l | grep 3cxpbx
+  delegate_to: "{{ vm_ip_address }}"
+  register: threecx_installed
+  failed_when: threecx_installed.rc != 0
+  vars:
+    ansible_user: "{{ ssh_user }}"
+    ansible_password: "{{ ssh_password }}"
+    ansible_become: true
+    ansible_become_method: sudo
+
+- name: Display 3CX installation status
+  ansible.builtin.debug:
+    msg:
+      - "3CX installation detected!"
+      - "{{ threecx_installed.stdout_lines }}"

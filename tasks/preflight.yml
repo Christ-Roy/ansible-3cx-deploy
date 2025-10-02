@@ -1,0 +1,62 @@
+---
+# Pre-flight checks before deployment
+
+- name: Check if ISO file exists
+  ansible.builtin.stat:
+    path: "{{ iso_path }}"
+  register: iso_file
+  failed_when: not iso_file.stat.exists
+
+- name: Check if SetupConfig.xml exists
+  ansible.builtin.stat:
+    path: "{{ setupconfig_source }}"
+  register: setupconfig_file
+  failed_when: not setupconfig_file.stat.exists
+
+- name: Ensure required packages are installed
+  ansible.builtin.package:
+    name:
+      - libvirt-daemon
+      - libvirt-clients
+      - python3-libvirt
+      - qemu-kvm
+      - virtinst
+      - genisoimage
+      - sshpass
+    state: present
+  become: true
+
+- name: Check if libvirt is running
+  ansible.builtin.systemd:
+    name: libvirtd
+    state: started
+    enabled: true
+  become: true
+
+- name: Check if VM already exists
+  community.libvirt.virt:
+    command: list_vms
+  register: existing_vms
+  become: true
+
+- name: Destroy existing VM if it exists
+  community.libvirt.virt:
+    name: "{{ vm_name }}"
+    state: destroyed
+  become: true
+  when: vm_name in existing_vms.list_vms
+  ignore_errors: true
+
+- name: Undefine existing VM if it exists
+  community.libvirt.virt:
+    name: "{{ vm_name }}"
+    command: undefine
+  become: true
+  when: vm_name in existing_vms.list_vms
+  ignore_errors: true
+
+- name: Remove existing VM disk if it exists
+  ansible.builtin.file:
+    path: "{{ storage_path }}/{{ vm_name }}.qcow2"
+    state: absent
+  become: true

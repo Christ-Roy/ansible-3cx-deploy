@@ -1,0 +1,37 @@
+# Python
+venv/
+__pycache__/
+*.pyc
+*.pyo
+*.pyd
+.Python
+
+# Ansible
+*.retry
+.ansible/
+
+# IDE
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Logs
+*.log
+
+# Secrets (IMPORTANT!)
+**/secrets.yml
+**/vault_*.yml
+**/.vault_pass
+
+# Molecule
+.cache/
+.molecule/
+
+# Test outputs
+tests/output/

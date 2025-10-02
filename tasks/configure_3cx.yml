@@ -1,0 +1,86 @@
+---
+# Configure 3CX with SetupConfig.xml
+
+- name: Ensure 3CX config directory exists
+  ansible.builtin.file:
+    path: /etc/3cxpbx
+    state: directory
+    mode: '0755'
+  delegate_to: "{{ vm_ip_address }}"
+  vars:
+    ansible_user: "{{ ssh_user }}"
+    ansible_password: "{{ ssh_password }}"
+    ansible_become: true
+
+- name: Copy SetupConfig.xml to 3CX server
+  ansible.builtin.copy:
+    src: "{{ setupconfig_source }}"
+    dest: "{{ setupconfig_dest }}"
+    mode: '0644'
+  delegate_to: "{{ vm_ip_address }}"
+  vars:
+    ansible_user: "{{ ssh_user }}"
+    ansible_password: "{{ ssh_password }}"
+    ansible_become: true
+
+- name: Check if 3CX wizard needs to be run
+  ansible.builtin.stat:
+    path: /var/lib/3cxpbx/.wizard_completed
+  delegate_to: "{{ vm_ip_address }}"
+  register: wizard_completed
+  vars:
+    ansible_user: "{{ ssh_user }}"
+    ansible_password: "{{ ssh_password }}"
+
+- name: Run 3CX wizard with setupconfig.xml
+  ansible.builtin.command:
+    cmd: /usr/sbin/3CXWizard --setupconfig {{ setupconfig_dest }}
+  delegate_to: "{{ vm_ip_address }}"
+  when: not wizard_completed.stat.exists
+  register: wizard_result
+  vars:
+    ansible_user: "{{ ssh_user }}"
+    ansible_password: "{{ ssh_password }}"
+    ansible_become: true
+  async: 600
+  poll: 10
+
+- name: Display wizard execution result
+  ansible.builtin.debug:
+    msg:
+      - "3CX Wizard executed successfully!"
+      - "{{ wizard_result.stdout_lines | default([]) }}"
+  when: wizard_result is defined
+
+- name: Wait for 3CX services to be fully operational
+  ansible.builtin.pause:
+    seconds: 30
+
+- name: Check 3CX service status
+  ansible.builtin.systemd:
+    name: 3cxpbx
+    state: started
+  delegate_to: "{{ vm_ip_address }}"
+  register: threecx_service
+  vars:
+    ansible_user: "{{ ssh_user }}"
+    ansible_password: "{{ ssh_password }}"
+    ansible_become: true
+
+- name: Verify 3CX web interface is accessible
+  ansible.builtin.uri:
+    url: "https://{{ vm_ip_address }}"
+    validate_certs: false
+    status_code: [200, 302, 401]
+  register: web_check
+  retries: 5
+  delay: 10
+  until: web_check.status in [200, 302, 401]
+  delegate_to: localhost
+
+- name: Display final configuration status
+  ansible.builtin.debug:
+    msg:
+      - "3CX Configuration Complete!"
+      - "Service Status: {{ threecx_service.status.ActiveState }}"
+      - "Web Interface: Accessible (HTTP {{ web_check.status }})"
